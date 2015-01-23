@@ -10,3 +10,10 @@
 target/
 .idea
 
+# eclipse
+affinity-test/.classpath
+affinity-test/.project
+affinity-test/.settings/
+affinity/.classpath
+affinity/.project
+affinity/.settings/
