@@ -1,3 +1,19 @@
+/*
+ *     Copyright (C) 2015  higherfrequencytrading.com
+ *
+ *     This program is free software: you can redistribute it and/or modify
+ *     it under the terms of the GNU Lesser General Public License as published by
+ *     the Free Software Foundation, either version 3 of the License.
+ *
+ *     This program is distributed in the hope that it will be useful,
+ *     but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *     GNU Lesser General Public License for more details.
+ *
+ *     You should have received a copy of the GNU Lesser General Public License
+ *     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package net.openhft.affinity.impl;
 
 import com.sun.jna.*;
@@ -5,6 +21,7 @@ import com.sun.jna.ptr.IntByReference;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.List;
 
 public class LinuxHelper {
@@ -170,7 +187,7 @@ public class LinuxHelper {
     }
 
     interface CLibrary extends Library {
-        static final CLibrary INSTANCE = (CLibrary) Native.loadLibrary(LIBRARY_NAME, CLibrary.class);
+        CLibrary INSTANCE = (CLibrary) Native.loadLibrary(LIBRARY_NAME, CLibrary.class);
 
         int sched_setaffinity(final int pid,
                               final int cpusetsize,
@@ -206,24 +223,27 @@ public class LinuxHelper {
         return cpuset;
     }
 
-    public static void sched_setaffinity(final long affinity) {
+    public static void sched_setaffinity(final BitSet affinity) {
         final CLibrary lib = CLibrary.INSTANCE;
         final cpu_set_t cpuset = new cpu_set_t();
         final int size = version.isSameOrNewer(VERSION_2_6) ? cpu_set_t.SIZE_OF_CPU_SET_T : NativeLong.SIZE;
-        if(Platform.is64Bit()) {
-            cpuset.__bits[0].setValue(affinity);
-        } else {
-            cpuset.__bits[0].setValue(affinity & 0xFFFFFFFFL);
-            cpuset.__bits[1].setValue((affinity >>> 32) & 0xFFFFFFFFL);
+        final long[] bits = affinity.toLongArray();
+        for (int i = 0; i < bits.length; i++) {
+            if (Platform.is64Bit()) {
+                cpuset.__bits[i].setValue(bits[i]);
+            } else {
+                cpuset.__bits[i*2].setValue(bits[i] & 0xFFFFFFFFL);
+                cpuset.__bits[i*2+1].setValue((bits[i] >>> 32) & 0xFFFFFFFFL);
+            }
         }
         try {
             if(lib.sched_setaffinity(0, size, cpuset) != 0) {
                 throw new IllegalStateException("sched_setaffinity(0, " + size +
-                        ", 0x" + Long.toHexString(affinity) + " failed; errno=" + Native.getLastError());
+                        ", 0x" + Utilities.toHexString(affinity) + ") failed; errno=" + Native.getLastError());
             }
         } catch (LastErrorException e) {
             throw new IllegalStateException("sched_setaffinity(0, " + size +
-                    ", 0x" + Long.toHexString(affinity) + " failed; errno=" + e.getErrorCode(), e);
+                    ", 0x" + Utilities.toHexString(affinity) + ") failed; errno=" + e.getErrorCode(), e);
         }
     }
 
@@ -253,6 +273,7 @@ public class LinuxHelper {
                     final IntByReference cpu = new IntByReference();
                     if(getcpu.invokeInt(new Object[] { cpu, null, null }) < 0) {
                         throw new IllegalStateException("getcpu() failed; errno=" + Native.getLastError());
+
                     } else {
                         return cpu.getValue();
                     }

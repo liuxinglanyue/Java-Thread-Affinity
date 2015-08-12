@@ -1,9 +1,31 @@
+/*
+ *     Copyright (C) 2015  higherfrequencytrading.com
+ *
+ *     This program is free software: you can redistribute it and/or modify
+ *     it under the terms of the GNU Lesser General Public License as published by
+ *     the Free Software Foundation, either version 3 of the License.
+ *
+ *     This program is distributed in the hope that it will be useful,
+ *     but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *     GNU Lesser General Public License for more details.
+ *
+ *     You should have received a copy of the GNU Lesser General Public License
+ *     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package net.openhft.affinity.impl;
 
 import com.sun.jna.Platform;
 import net.openhft.affinity.IAffinity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.BitSet;
+import java.util.Collections;
+import java.util.LinkedList;
 
 public enum LinuxJNAAffinity implements IAffinity {
     INSTANCE;
@@ -12,14 +34,68 @@ public enum LinuxJNAAffinity implements IAffinity {
 
     // TODO: FIXME!!! CHANGE IAffinity TO SUPPORT PLATFORMS WITH 64+ CORES FIXME!!!
     @Override
-    public long getAffinity() {
+    public BitSet getAffinity() {
         final LinuxHelper.cpu_set_t cpuset = LinuxHelper.sched_getaffinity();
-        return cpuset.__bits[0].longValue();
+
+        boolean collect = false;
+        ArrayList<Byte> bytes = new ArrayList<Byte>();
+
+        ByteBuffer buff = null;
+        if (Platform.is64Bit())
+        {
+            buff = ByteBuffer.allocate(Long.SIZE / 8);
+        }
+        else
+        {
+            buff = ByteBuffer.allocate(Integer.SIZE / 8);
+        }
+
+        for (int i = cpuset.__bits.length - 1; i >= 0; --i)
+        {
+            if (!collect && cpuset.__bits[i].longValue() != 0)
+            {
+                collect = true;
+            }
+
+            if (collect)
+            {
+                if (Platform.is64Bit())
+                {
+                    buff.putLong(cpuset.__bits[i].longValue());
+                }
+                else
+                {
+                    buff.putInt((int) cpuset.__bits[i].longValue());
+                }
+
+                final byte[] arr = buff.array();
+                //for (int j = arr.length - 1; j >= 0; --j)
+                for (int j = 0; j < arr.length; j++)
+                {
+                    bytes.add(arr[j]);
+                }
+            }
+        }
+
+        if (!bytes.isEmpty())
+        {
+            byte[] data = new byte[bytes.size()];
+            for (int i = 0; i < bytes.size(); i++)
+            {
+                // don't forget to reverse the order of long values
+                data[data.length - i - 1] = bytes.get(i);
+            }
+            return BitSet.valueOf(data);
+        }
+        else
+        {
+            return new BitSet();
+        }
     }
 
     // TODO: FIXME!!! CHANGE IAffinity TO SUPPORT PLATFORMS WITH 64+ CORES FIXME!!!
     @Override
-    public void setAffinity(final long affinity) {
+    public void setAffinity(final BitSet affinity) {
         LinuxHelper.sched_setaffinity(affinity);
     }
 

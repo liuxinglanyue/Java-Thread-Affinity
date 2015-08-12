@@ -1,3 +1,19 @@
+/*
+ *     Copyright (C) 2015  higherfrequencytrading.com
+ *
+ *     This program is free software: you can redistribute it and/or modify
+ *     it under the terms of the GNU Lesser General Public License as published by
+ *     the Free Software Foundation, either version 3 of the License.
+ *
+ *     This program is distributed in the hope that it will be useful,
+ *     but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *     GNU Lesser General Public License for more details.
+ *
+ *     You should have received a copy of the GNU Lesser General Public License
+ *     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package net.openhft.affinity.impl;
 
 public class VersionHelper {
@@ -18,6 +34,7 @@ public class VersionHelper {
             major = parts.length > 0 ? Integer.parseInt(parts[0]) : 0;
             minor = parts.length > 1 ? Integer.parseInt(parts[1]) : 0;
             release = parts.length > 2 ? Integer.parseInt(parts[2]) : 0;
+
         } else {
             major = minor = release = 0;
         }
@@ -33,6 +50,7 @@ public class VersionHelper {
             return this.major == ver.major
                     && this.minor == ver.minor
                     && this.release == ver.release;
+
         } else {
             return false;
         }
